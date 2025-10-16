@@ -1,0 +1,96 @@
+from flask import Flask, request, jsonify, send_file
+from datetime import datetime
+import json
+import os
+
+app = Flask(__name__)
+# Allows the frontend on a different port to talk to the backend
+from flask_cors import CORS
+CORS(app) 
+
+DATA_FILE = 'data.json'
+ADMIN_PASSWORD = "your_strong_admin_password" # Change this!
+
+# Helper function to read/write data
+def load_match_data():
+    if not os.path.exists(DATA_FILE):
+        return None
+    with open(DATA_FILE, 'r') as f:
+        return json.load(f)
+
+def save_match_data(data):
+    with open(DATA_FILE, 'w') as f:
+        json.dump(data, f, indent=4)
+
+# --- API ENDPOINTS ---
+
+@app.route('/api/matchdata', methods=['GET'])
+def get_match_data():
+    """Endpoint for all users to fetch current match data."""
+    data = load_match_data()
+    if data:
+        # For non-admin users, we might want to mask the password if it's not LIVE/COMPLETED
+        # But for this simple app, we'll send it all and rely on the frontend logic.
+        return jsonify(data)
+    return jsonify({"error": "No match data found"}), 404
+
+@app.route('/api/matchdata', methods=['POST'])
+def update_match_data():
+    """Endpoint for admin to update match data."""
+    # 1. Admin Authentication
+    auth_header = request.headers.get('X-Admin-Password')
+    if auth_header != ADMIN_PASSWORD:
+        return jsonify({"message": "Unauthorized access."}), 401
+
+    # 2. Update Data
+    new_data = request.json
+    if not new_data:
+        return jsonify({"message": "Invalid data format."}), 400
+
+    # Optional: Basic validation to ensure all required fields are present
+    required_keys = ['matchName', 'startTime', 'roomId', 'password', 'teamNames', 'mapStatuses', 'winnerPoints']
+    if not all(k in new_data for k in required_keys):
+         return jsonify({"message": "Missing required fields."}), 400
+         
+    # Preserve the maps array since it's static in your client code
+    current_data = load_match_data()
+    if current_data:
+        new_data['maps'] = current_data.get('maps', ["Bermuda", "Purgatory", "Kalahari", "Alpine"])
+        
+    save_match_data(new_data)
+    
+    return jsonify({"message": "Match data updated successfully!", "data": new_data}), 200
+
+# --- Serve Static HTML/Image (Optional but helpful) ---
+@app.route('/')
+def serve_index():
+    return send_file('index.html')
+
+@app.route('/tpg.png')
+def serve_logo():
+    # You would need an actual tpg.png file for this to work
+    # For now, let's just use a placeholder or remove the tag in HTML
+    return "" # Or serve the file if you have it: return send_file('tpg.png') 
+
+
+if __name__ == '__main__':
+    # Initialize data.json if it doesn't exist
+    if not os.path.exists(DATA_FILE):
+        print(f"Initializing {DATA_FILE} with default data...")
+        # Use a simplified default structure to start
+        initial_data = {
+            "matchName": "TPG Scrims Match 1",
+            "gameName": "Free Fire",
+            "startTime": datetime.now().strftime("%Y-%m-%dT%H:%M"),
+            "revealTime": datetime.now().strftime("%Y-%m-%dT%H:%M"),
+            "status": "UPCOMING",
+            "roomId": "N/A",
+            "password": "N/A",
+            "teamNames": [f"Squad {i+1}" for i in range(12)],
+            "maps": ["Bermuda", "Purgatory", "Kalahari", "Alpine"],
+            "mapStatuses": ["UPCOMING", "UPCOMING", "UPCOMING", "UPCOMING"],
+            "winnerPoints": [{"name": "", "points": 0}, {"name": "", "points": 0}, {"name": "", "points": 0}]
+        }
+        save_match_data(initial_data)
+
+    app.run(debug=True, port=5000)

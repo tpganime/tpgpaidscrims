@@ -1,0 +1,21 @@
+{
+    "matchName": "TPG Scrims Match 1",
+    "gameName": "Free Fire",
+    "startTime": "2025-10-18T20:00",
+    "revealTime": "2025-10-18T19:50",
+    "status": "UPCOMING",
+    "roomId": "12345678",
+    "password": "TPG@FF",
+    "teamNames": [
+        "Squad 1", "Squad 2", "Squad 3", "Squad 4",
+        "Squad 5", "Squad 6", "Squad 7", "Squad 8",
+        "Squad 9", "Squad 10", "Squad 11", "Squad 12"
+    ],
+    "maps": ["Bermuda", "Purgatory", "Kalahari", "Alpine"],
+    "mapStatuses": ["ongoing", "UPCOMING", "UPCOMING", "UPCOMING"],
+    "winnerPoints": [
+        { "name": "TPG Esports", "points": 150 },
+        { "name": "Team X", "points": 120 },
+        { "name": "Team Y", "points": 90 }
+    ]
+}
