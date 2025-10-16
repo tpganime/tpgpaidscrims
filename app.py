@@ -2,14 +2,15 @@ from flask import Flask, request, jsonify, send_file
 from datetime import datetime
 import json
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
 # Allows the frontend on a different port to talk to the backend
-from flask_cors import CORS
 CORS(app) 
 
 DATA_FILE = 'data.json'
-ADMIN_PASSWORD = "your_strong_admin_password" # Change this!
+# ⭐️ CRITICAL FIX: Ensure this password matches the one in index (3).html
+ADMIN_PASSWORD = "asdfghjkl;'"
 
 # Helper function to read/write data
 def load_match_data():
@@ -29,17 +30,16 @@ def get_match_data():
     """Endpoint for all users to fetch current match data."""
     data = load_match_data()
     if data:
-        # For non-admin users, we might want to mask the password if it's not LIVE/COMPLETED
-        # But for this simple app, we'll send it all and rely on the frontend logic.
         return jsonify(data)
     return jsonify({"error": "No match data found"}), 404
 
 @app.route('/api/matchdata', methods=['POST'])
 def update_match_data():
     """Endpoint for admin to update match data."""
-    # 1. Admin Authentication
+    # 1. Admin Authentication: Check the custom header sent from the frontend
     auth_header = request.headers.get('X-Admin-Password')
     if auth_header != ADMIN_PASSWORD:
+        # This is what generates the 401 UNAUTHORIZED error if the header is missing or wrong
         return jsonify({"message": "Unauthorized access."}), 401
 
     # 2. Update Data
@@ -50,13 +50,13 @@ def update_match_data():
     # Optional: Basic validation to ensure all required fields are present
     required_keys = ['matchName', 'startTime', 'roomId', 'password', 'teamNames', 'mapStatuses', 'winnerPoints']
     if not all(k in new_data for k in required_keys):
-         return jsonify({"message": "Missing required fields."}), 400
-         
+        return jsonify({"message": "Missing required fields."}), 400
+            
     # Preserve the maps array since it's static in your client code
     current_data = load_match_data()
     if current_data:
         new_data['maps'] = current_data.get('maps', ["Bermuda", "Purgatory", "Kalahari", "Alpine"])
-        
+            
     save_match_data(new_data)
     
     return jsonify({"message": "Match data updated successfully!", "data": new_data}), 200
@@ -64,13 +64,15 @@ def update_match_data():
 # --- Serve Static HTML/Image (Optional but helpful) ---
 @app.route('/')
 def serve_index():
-    return send_file('index.html')
+    # Assuming your main HTML file is now named index (3).html, rename it to index.html 
+    # OR change the line below to: return send_file('index (3).html')
+    return send_file('index.html') 
 
 @app.route('/tpg.png')
 def serve_logo():
-    # You would need an actual tpg.png file for this to work
-    # For now, let's just use a placeholder or remove the tag in HTML
-    return "" # Or serve the file if you have it: return send_file('tpg.png') 
+    # If you have the image, uncomment the next line. Otherwise, it returns nothing.
+    # return send_file('tpg.png') 
+    return "" 
 
 
 if __name__ == '__main__':

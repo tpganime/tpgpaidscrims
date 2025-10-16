@@ -7,15 +7,43 @@
     "roomId": "12345678",
     "password": "TPG@FF",
     "teamNames": [
-        "Squad 1", "Squad 2", "Squad 3", "Squad 4",
-        "Squad 5", "Squad 6", "Squad 7", "Squad 8",
-        "Squad 9", "Squad 10", "Squad 11", "Squad 12"
+        "Squad 1",
+        "Squad 2",
+        "Squad 3",
+        "Squad 4",
+        "Squad 5",
+        "Squad 6",
+        "Squad 7",
+        "Squad 8",
+        "Squad 9",
+        "Squad 10",
+        "Squad 11",
+        "Squad 12"
     ],
-    "maps": ["Bermuda", "Purgatory", "Kalahari", "Alpine"],
-    "mapStatuses": ["ongoing", "UPCOMING", "UPCOMING", "UPCOMING"],
+    "maps": [
+        "Bermuda",
+        "Purgatory",
+        "Kalahari",
+        "Alpine"
+    ],
+    "mapStatuses": [
+        "ONGOING",
+        "UPCOMING",
+        "ONGOING",
+        "UPCOMING"
+    ],
     "winnerPoints": [
-        { "name": "TPG Esports", "points": 150 },
-        { "name": "Team X", "points": 120 },
-        { "name": "Team Y", "points": 90 }
+        {
+            "name": "TPG Esports",
+            "points": 150
+        },
+        {
+            "name": "Team X",
+            "points": 120
+        },
+        {
+            "name": "Team Y",
+            "points": 90
+        }
     ]
 }
