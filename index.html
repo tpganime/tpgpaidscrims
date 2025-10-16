@@ -30,6 +30,7 @@
             justify-content: center;
             align-items: flex-start;
             min-height: 100vh;
+            perspective: 800px; /* Add perspective for 3D effects */
         }
 
         .container {
@@ -74,8 +75,14 @@
             border-radius: 12px;
             padding: 30px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            transition: box-shadow 0.3s ease;
+            transition: box-shadow 0.3s ease, transform 0.5s ease; /* Added transform transition */
             position: relative;
+            transform-style: preserve-3d; /* Enable 3D transformations */
+        }
+
+        .main-card:hover {
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.6);
+            transform: none; /* Removed tilt effect */
         }
 
         .match-info {
@@ -112,8 +119,8 @@
         .status-live { 
             background-color: var(--live-color); 
             color: var(--dark-bg); 
-            box-shadow: 0 0 15px var(--live-color); 
-            animation: pulse 1.5s infinite; 
+            box-shadow: 0 0 15px var(--live-color);
+            animation: pulse 1.5s infinite; /* Removed tilt-shimmer animation */
         }
         .status-completed { background-color: var(--completed-color); color: var(--dark-bg); }
 
@@ -249,11 +256,12 @@
             padding: 8px 15px;
             border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, transform 0.3s ease; /* Added transform transition */
         }
 
         .copy-btn:hover {
             background-color: #c93737;
+            transform: translateY(-2px); /* Slight lift on hover */
         }
 
         /* Points Table */
@@ -582,9 +590,25 @@
         </div>
     </div>
 
+    <!-- Admin Password Modal -->
+    <div id="adminPasswordModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeAdminPasswordModalBtn">&times;</span>
+            <h2>Admin Authentication</h2>
+            <div class="modal-field">
+                <label for="adminPasswordInput">Enter Admin Password</label>
+                <input type="password" id="adminPasswordInput" placeholder="Password">
+            </div>
+            <div class="modal-buttons">
+                <button id="adminPasswordSubmitBtn">Submit</button>
+                <button id="adminPasswordCancelBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // JavaScript Logic
-        const ADMIN_PASSWORD = "Tanmayts@123";
+        const ADMIN_PASSWORD = "asdfghjkl;'";
 
         // Default Data Structure
         let matchData = {
@@ -800,25 +824,21 @@
          * Opens the modal and populates fields with current data.
          */
         function openAdminModal() {
-            const password = prompt("Enter Admin Password:");
-            if (password !== ADMIN_PASSWORD) {
-                alert("Incorrect Admin Password!");
-                return;
-            }
+            showAdminPasswordModal(() => {
+                // Populate static form fields
+                document.getElementById('editMatchName').value = matchData.matchName;
+                document.getElementById('editStartTime').value = matchData.startTime;
+                document.getElementById('editRevealTime').value = matchData.revealTime;
+                document.getElementById('editRoomId').value = matchData.roomId;
+                document.getElementById('editPassword').value = matchData.password;
+                document.getElementById('editTeamNames').value = matchData.teamNames.join('\n');
 
-            // Populate static form fields
-            document.getElementById('editMatchName').value = matchData.matchName;
-            document.getElementById('editStartTime').value = matchData.startTime;
-            document.getElementById('editRevealTime').value = matchData.revealTime;
-            document.getElementById('editRoomId').value = matchData.roomId;
-            document.getElementById('editPassword').value = matchData.password;
-            document.getElementById('editTeamNames').value = matchData.teamNames.join('\n');
+                // Populate dynamic fields
+                renderMapStatusSelectors();
+                renderWinnerPointsInputs();
 
-            // Populate dynamic fields
-            renderMapStatusSelectors();
-            renderWinnerPointsInputs();
-
-            modal.style.display = 'block';
+                modal.style.display = 'block';
+            });
         }
 
         /**
@@ -870,48 +890,90 @@
          * Marks the current match as COMPLETED.
          */
         function markMatchOver() {
-            const password = prompt("Confirm 'Mark Match Over' with Admin Password:");
-            if (password !== ADMIN_PASSWORD) {
-                alert("Incorrect Admin Password!");
-                return;
-            }
-
-            matchData.status = 'COMPLETED';
-            saveData();
-            modal.style.display = 'none';
-            alert("✅ Match has been marked as COMPLETED. Points table is now visible.");
+            showAdminPasswordModal(() => {
+                matchData.status = 'COMPLETED';
+                saveData();
+                modal.style.display = 'none';
+                alert("✅ Match has been marked as COMPLETED. Points table is now visible.");
+            });
         }
 
         /**
          * Resets data for the next match.
          */
         function startNextMatch() {
-            const password = prompt("Confirm 'Start Next Match' with Admin Password:");
-            if (password !== ADMIN_PASSWORD) {
-                alert("Incorrect Admin Password!");
-                return;
+            showAdminPasswordModal(() => {
+                // Resetting to default data, incrementing match name
+                const currentMatchNum = parseInt(matchData.matchName.match(/\d+/) || 0) || 0;
+                
+                matchData = {
+                    matchName: `TPG Scrims Match ${currentMatchNum + 1}`,
+                    gameName: "Free Fire",
+                    startTime: new Date(new Date().getTime() + 60 * 60 * 1000).toISOString().slice(0, 16),
+                    revealTime: new Date(new Date().getTime() + 50 * 60 * 1000).toISOString().slice(0, 16),
+                    status: "UPCOMING",
+                    roomId: "NEWID",
+                    password: "NEWPASS",
+                    teamNames: Array.from({ length: 12 }, (_, i) => `Squad ${i + 1}`),
+                    maps: ["Bermuda", "Purgatory", "Kalahari", "Alpine"],
+                    mapStatuses: ["UPCOMING", "UPCOMING", "UPCOMING", "UPCOMING"],
+                    winnerPoints: Array.from({ length: 3 }, () => ({ name: '', points: 0 }))
+                };
+
+                saveData();
+                modal.style.display = 'none';
+                alert("▶️ Data has been reset for the next match.");
+            });
+        }
+
+        /**
+         * Shows the admin password modal and calls the provided callback if authentication succeeds.
+         */
+        function showAdminPasswordModal(successCallback) {
+            const adminModal = document.getElementById('adminPasswordModal');
+            const passwordInput = document.getElementById('adminPasswordInput');
+            const submitBtn = document.getElementById('adminPasswordSubmitBtn');
+            const cancelBtn = document.getElementById('adminPasswordCancelBtn');
+
+            // Clear previous input and display modal
+            passwordInput.value = "";
+            adminModal.style.display = 'block';
+
+            function onSubmit() {
+                if (passwordInput.value === ADMIN_PASSWORD) {
+                    cleanup();
+                    successCallback();
+                } else {
+                    alert("Incorrect Admin Password!");
+                }
             }
 
-            // Resetting to default data, incrementing match name
-            const currentMatchNum = parseInt(matchData.matchName.match(/\d+/) || 0) || 0;
-            
-            matchData = {
-                matchName: `TPG Scrims Match ${currentMatchNum + 1}`,
-                gameName: "Free Fire",
-                startTime: new Date(new Date().getTime() + 60 * 60 * 1000).toISOString().slice(0, 16),
-                revealTime: new Date(new Date().getTime() + 50 * 60 * 1000).toISOString().slice(0, 16),
-                status: "UPCOMING",
-                roomId: "NEWID",
-                password: "NEWPASS",
-                teamNames: Array.from({ length: 12 }, (_, i) => `Squad ${i + 1}`),
-                maps: ["Bermuda", "Purgatory", "Kalahari", "Alpine"],
-                mapStatuses: ["UPCOMING", "UPCOMING", "UPCOMING", "UPCOMING"],
-                winnerPoints: Array.from({ length: 3 }, () => ({ name: '', points: 0 }))
+            function onCancel() {
+                cleanup();
+            }
+
+            const closeBtn = document.getElementById('closeAdminPasswordModalBtn');
+
+            // Listener for Enter key in password input
+            const enterKeyListener = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onSubmit();
+                }
             };
 
-            saveData();
-            modal.style.display = 'none';
-            alert("▶️ Data has been reset for the next match.");
+            function cleanup() {
+                adminModal.style.display = 'none';
+                submitBtn.removeEventListener('click', onSubmit);
+                cancelBtn.removeEventListener('click', onCancel);
+                closeBtn.removeEventListener('click', onCancel);
+                passwordInput.removeEventListener('keydown', enterKeyListener);
+            }
+
+            submitBtn.addEventListener('click', onSubmit);
+            cancelBtn.addEventListener('click', onCancel);
+            closeBtn.addEventListener('click', onCancel);
+            passwordInput.addEventListener('keydown', enterKeyListener);
         }
 
         // --- Event Listeners ---
