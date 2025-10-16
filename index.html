@@ -479,10 +479,10 @@
 
             <div class="match-info">
                 <div class="details">
-                    <h2 id="matchNameDisplay">Scrims Match 1</h2>
-                    <p>Game: <strong id="gameNameDisplay">Free Fire</strong> | Start Time: <strong id="startTimeDisplay">08:00 PM</strong></p>
+                    <h2 id="matchNameDisplay">Loading...</h2>
+                    <p>Game: <strong id="gameNameDisplay">Free Fire</strong> | Start Time: <strong id="startTimeDisplay">--:-- PM</strong></p>
                 </div>
-                <div id="matchStatusBadge" class="status-badge status-upcoming">UPCOMING</div>
+                <div id="matchStatusBadge" class="status-badge status-upcoming">LOADING</div>
             </div>
 
             <div class="countdown-section" id="countdownSection">
@@ -590,45 +590,26 @@
         </div>
     </div>
 
-    <!-- Admin Password Modal -->
-    <div id="adminPasswordModal" class="modal">
-        <div class="modal-content">
-            <span class="close" id="closeAdminPasswordModalBtn">&times;</span>
-            <h2>Admin Authentication</h2>
-            <div class="modal-field">
-                <label for="adminPasswordInput">Enter Admin Password</label>
-                <input type="password" id="adminPasswordInput" placeholder="Password">
-            </div>
-            <div class="modal-buttons">
-                <button id="adminPasswordSubmitBtn">Submit</button>
-                <button id="adminPasswordCancelBtn">Cancel</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // JavaScript Logic
-        const ADMIN_PASSWORD = "asdfghjkl;'";
+        // --- API & Constants ---
+        const ADMIN_PASSWORD = "your_strong_admin_password"; // IMPORTANT: MUST MATCH BACKEND PASSWORD
+        const API_URL = "http://127.0.0.1:5000/api/matchdata"; // IMPORTANT: Change if your server is different
 
-        // Default Data Structure
+        // Match data will be populated by the API call
         let matchData = {
-            matchName: "TPG Scrims Match 1",
+            matchName: "Loading...",
             gameName: "Free Fire",
-            startTime: new Date(new Date().getTime() + 60 * 60 * 1000).toISOString().slice(0, 16), // 1 hour from now
-            revealTime: new Date(new Date().getTime() + 50 * 60 * 1000).toISOString().slice(0, 16), // 50 mins from now
-            status: "UPCOMING", // UPCOMING, LIVE, COMPLETED
-            roomId: "12345678",
-            password: "TPG@FF",
-            teamNames: Array.from({ length: 12 }, (_, i) => `Squad ${i + 1}`),
+            startTime: new Date().toISOString().slice(0, 16),
+            revealTime: new Date().toISOString().slice(0, 16),
+            status: "LOADING",
+            roomId: "N/A",
+            password: "N/A",
+            teamNames: Array.from({ length: 12 }, (_, i) => `Loading Squad ${i + 1}`),
             maps: ["Bermuda", "Purgatory", "Kalahari", "Alpine"],
-            mapStatuses: ["ongoing", "UPCOMING", "UPCOMING", "UPCOMING"], // UPCOMING, ONGOING, OVER
-            winnerPoints: [
-                { name: 'TPG Esports', points: 150 },
-                { name: 'Team X', points: 120 },
-                { name: 'Team Y', points: 90 }
-            ]
+            mapStatuses: ["UPCOMING", "UPCOMING", "UPCOMING", "UPCOMING"],
+            winnerPoints: []
         };
-
+        
         // --- DOM Elements ---
         const matchStatusBadge = document.getElementById('matchStatusBadge');
         const countdownTimer = document.getElementById('countdownTimer');
@@ -649,30 +630,71 @@
 
         let countdownInterval;
 
-        // --- Core Functions ---
+        // --- Core Functions: API Interaction ---
 
         /**
-         * Loads data from localStorage or uses default data.
+         * Fetches current data from the backend server.
          */
-        function loadData() {
-            const savedData = localStorage.getItem('matchData');
-            if (savedData) {
-                matchData = JSON.parse(savedData);
-            }
-            // Ensure necessary fields are initialized if loaded data is incomplete
-            if (!matchData.maps) matchData.maps = ["Bermuda", "Purgatory", "Kalahari", "Alpine"];
-            if (!matchData.mapStatuses) matchData.mapStatuses = ["UPCOMING", "UPCOMING", "UPCOMING", "UPCOMING"];
-            if (!matchData.winnerPoints || matchData.winnerPoints.length === 0) {
-                 matchData.winnerPoints = Array.from({ length: 3 }, () => ({ name: '', points: 0 }));
+        async function loadData() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const serverData = await response.json();
+                
+                // Ensure maps/mapStatuses have default structure if missing from server response
+                matchData = {
+                    ...matchData, // keep default maps array
+                    ...serverData
+                };
+                
+                console.log("Data loaded from server.");
+            } catch (error) {
+                console.error("Failed to fetch match data. Is the backend running?", error);
+                alert("Error: Could not connect to the server or retrieve match data.");
             }
         }
 
         /**
-         * Saves current matchData to localStorage.
+         * Sends updated matchData to the backend server with admin authentication.
          */
-        function saveData() {
-            localStorage.setItem('matchData', JSON.stringify(matchData));
-            updateUI();
+        async function saveData() {
+            // Include admin password in a custom header for authentication
+            const dataToSave = { ...matchData }; // Send the current matchData object
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-Password': ADMIN_PASSWORD // Server-side authentication
+                    },
+                    body: JSON.stringify(dataToSave)
+                });
+                
+                if (!response.ok) {
+                    let errorMessage = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorMessage;
+                    } catch {
+                        // Ignore if response is not JSON
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                console.log("Data saved successfully to the server.");
+                // Server might return the updated data, but we can rely on our local update + updateUI
+                updateUI(); 
+            } catch (error) {
+                alert(`❌ Failed to save data. Check admin password and server status: ${error.message}`);
+                console.error("Failed to save match data:", error);
+                
+                // Reload UI to show the correct, non-saved data if update failed
+                await loadData();
+                updateUI();
+            }
         }
 
         /**
@@ -708,7 +730,7 @@
             squadsGrid.innerHTML = matchData.teamNames.map(name => `<div class="team-squad">${name}</div>`).join('');
 
             // --- Maps Status ---
-            mapsGrid.innerHTML = matchData.maps.map((map, index) => `
+            mapsGrid.innerHTML = (matchData.maps || []).map((map, index) => `
                 <div class="map-status map-${(matchData.mapStatuses[index] || 'UPCOMING').toLowerCase()}">
                     ${map}<span class="map-status-text">${matchData.mapStatuses[index] || 'UPCOMING'}</span>
                 </div>
@@ -733,8 +755,10 @@
             const body = document.getElementById('pointsTableBody');
             body.innerHTML = '';
             
+            const winners = matchData.winnerPoints || [];
+            
             // Sort points by score descending
-            const sortedWinners = [...matchData.winnerPoints].sort((a, b) => b.points - a.points);
+            const sortedWinners = [...winners].sort((a, b) => b.points - a.points);
             const top3 = sortedWinners.slice(0, 3).filter(team => team.name && team.points > 0);
 
             if (top3.length === 0) {
@@ -764,7 +788,8 @@
                 // Time for reveal!
                 clearInterval(countdownInterval);
                 matchData.status = 'LIVE';
-                saveData();
+                // Trigger save on status change for everyone to see
+                saveData(); 
                 alert("🚨 ID and Password Revealed! Check the main card. Good luck!");
                 return;
             }
@@ -787,7 +812,7 @@
             mapStatusSelectorsDiv.innerHTML = '';
             const statuses = ["UPCOMING", "ONGOING", "OVER"];
             
-            matchData.maps.forEach((mapName, index) => {
+            (matchData.maps || []).forEach((mapName, index) => {
                 const mapField = document.createElement('div');
                 mapField.classList.add('modal-field');
                 mapField.innerHTML = `
@@ -808,7 +833,7 @@
             
             for (let i = 0; i < 3; i++) {
                 // Ensure we have data for the current rank, defaulting if not present
-                const team = matchData.winnerPoints[i] || { name: '', points: 0 }; 
+                const team = (matchData.winnerPoints && matchData.winnerPoints[i]) || { name: '', points: 0 }; 
                 const inputGroup = document.createElement('div');
                 inputGroup.classList.add('winner-input-group');
                 inputGroup.innerHTML = `
@@ -824,21 +849,19 @@
          * Opens the modal and populates fields with current data.
          */
         function openAdminModal() {
-            showAdminPasswordModal(() => {
-                // Populate static form fields
-                document.getElementById('editMatchName').value = matchData.matchName;
-                document.getElementById('editStartTime').value = matchData.startTime;
-                document.getElementById('editRevealTime').value = matchData.revealTime;
-                document.getElementById('editRoomId').value = matchData.roomId;
-                document.getElementById('editPassword').value = matchData.password;
-                document.getElementById('editTeamNames').value = matchData.teamNames.join('\n');
+            // Populate static form fields
+            document.getElementById('editMatchName').value = matchData.matchName;
+            document.getElementById('editStartTime').value = matchData.startTime;
+            document.getElementById('editRevealTime').value = matchData.revealTime;
+            document.getElementById('editRoomId').value = matchData.roomId;
+            document.getElementById('editPassword').value = matchData.password;
+            document.getElementById('editTeamNames').value = matchData.teamNames.join('\n');
 
-                // Populate dynamic fields
-                renderMapStatusSelectors();
-                renderWinnerPointsInputs();
+            // Populate dynamic fields
+            renderMapStatusSelectors();
+            renderWinnerPointsInputs();
 
-                modal.style.display = 'block';
-            });
+            modal.style.display = 'block';
         }
 
         /**
@@ -857,7 +880,7 @@
             for (let i = 0; i < 3; i++) {
                 const name = document.getElementById(`winnerTeamName${i}`).value.trim();
                 const points = parseInt(document.getElementById(`winnerPoints${i}`).value) || 0;
-                if (name) { // Only save if a team name is provided
+                if (name || points > 0) { // Only save if a team name or points are provided
                     newWinnerPoints.push({ name, points });
                 }
             }
@@ -873,7 +896,7 @@
             matchData.mapStatuses = newMapStatuses.slice(0, 4); // Only take max 4
             matchData.winnerPoints = newWinnerPoints;
 
-            // Check if status needs to be reset
+            // Check if status needs to be reset/updated based on time
             const now = new Date().getTime();
             const revealTime = new Date(matchData.revealTime).getTime();
             if (matchData.status !== 'COMPLETED' && now < revealTime) {
@@ -882,6 +905,7 @@
                 matchData.status = 'LIVE';
             }
             
+            // Save to the backend
             saveData();
             modal.style.display = 'none';
         }
@@ -890,25 +914,26 @@
          * Marks the current match as COMPLETED.
          */
         function markMatchOver() {
-            showAdminPasswordModal(() => {
+            if (confirm("Are you sure you want to mark the match as OVER? This will finalize the points table.")) {
                 matchData.status = 'COMPLETED';
                 saveData();
                 modal.style.display = 'none';
                 alert("✅ Match has been marked as COMPLETED. Points table is now visible.");
-            });
+            }
         }
 
         /**
-         * Resets data for the next match.
+         * Resets data for the next match (sends a completely new object to the backend).
          */
         function startNextMatch() {
-            showAdminPasswordModal(() => {
+            if (confirm("Are you sure you want to START NEXT MATCH? This will erase current match data.")) {
                 // Resetting to default data, incrementing match name
                 const currentMatchNum = parseInt(matchData.matchName.match(/\d+/) || 0) || 0;
                 
                 matchData = {
                     matchName: `TPG Scrims Match ${currentMatchNum + 1}`,
                     gameName: "Free Fire",
+                    // Set times to 1 hour/50 minutes from now (must be in ISO format)
                     startTime: new Date(new Date().getTime() + 60 * 60 * 1000).toISOString().slice(0, 16),
                     revealTime: new Date(new Date().getTime() + 50 * 60 * 1000).toISOString().slice(0, 16),
                     status: "UPCOMING",
@@ -920,60 +945,10 @@
                     winnerPoints: Array.from({ length: 3 }, () => ({ name: '', points: 0 }))
                 };
 
-                saveData();
+                saveData(); // Save the reset data
                 modal.style.display = 'none';
                 alert("▶️ Data has been reset for the next match.");
-            });
-        }
-
-        /**
-         * Shows the admin password modal and calls the provided callback if authentication succeeds.
-         */
-        function showAdminPasswordModal(successCallback) {
-            const adminModal = document.getElementById('adminPasswordModal');
-            const passwordInput = document.getElementById('adminPasswordInput');
-            const submitBtn = document.getElementById('adminPasswordSubmitBtn');
-            const cancelBtn = document.getElementById('adminPasswordCancelBtn');
-
-            // Clear previous input and display modal
-            passwordInput.value = "";
-            adminModal.style.display = 'block';
-
-            function onSubmit() {
-                if (passwordInput.value === ADMIN_PASSWORD) {
-                    cleanup();
-                    successCallback();
-                } else {
-                    alert("Incorrect Admin Password!");
-                }
             }
-
-            function onCancel() {
-                cleanup();
-            }
-
-            const closeBtn = document.getElementById('closeAdminPasswordModalBtn');
-
-            // Listener for Enter key in password input
-            const enterKeyListener = (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    onSubmit();
-                }
-            };
-
-            function cleanup() {
-                adminModal.style.display = 'none';
-                submitBtn.removeEventListener('click', onSubmit);
-                cancelBtn.removeEventListener('click', onCancel);
-                closeBtn.removeEventListener('click', onCancel);
-                passwordInput.removeEventListener('keydown', enterKeyListener);
-            }
-
-            submitBtn.addEventListener('click', onSubmit);
-            cancelBtn.addEventListener('click', onCancel);
-            closeBtn.addEventListener('click', onCancel);
-            passwordInput.addEventListener('keydown', enterKeyListener);
         }
 
         // --- Event Listeners ---
@@ -1006,14 +981,24 @@
                     setTimeout(() => { e.target.textContent = targetId.includes('Id') ? 'Copy ID' : 'Copy Password'; }, 1500);
                 }).catch(err => {
                     console.error('Could not copy text: ', err);
+                    alert("Failed to copy. Please copy manually.");
                 });
             });
         });
 
         // --- Initialization ---
-        loadData();
-        updateUI();
+        async function init() {
+            await loadData();
+            updateUI();
+            
+            // Periodically refresh data in case another admin updated it or status changes
+            setInterval(async () => {
+                await loadData();
+                updateUI();
+            }, 10000); // Refresh every 10 seconds
+        }
+        
+        init();
     </script>
 </body>
 </html>
-
